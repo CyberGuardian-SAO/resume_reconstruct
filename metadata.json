@@ -1,0 +1,6 @@
+{
+  "name": "简历重构与跨行求职助手",
+  "description": "跨行业求职策略与简历重构专家，提供高情商投递话术、7天硬核备战方案以及Stripe/Notion风格的精美求职简历重构与PDF下载功能。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

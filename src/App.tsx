@@ -1,0 +1,1293 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useRef } from "react";
+import { 
+  Briefcase, 
+  Sparkles, 
+  Flame, 
+  Send, 
+  Copy, 
+  Check, 
+  FileText, 
+  Calendar, 
+  Download, 
+  AlertTriangle, 
+  Users, 
+  Bookmark, 
+  Smartphone, 
+  Mail, 
+  MapPin, 
+  ExternalLink,
+  ChevronRight,
+  RefreshCw,
+  Award,
+  BookOpen,
+  Layers,
+  FileCheck
+} from "lucide-react";
+import { demoExamples } from "./examplesData";
+import { TransitionResult, RestructuredResume, WorkExperience, PortfolioProject } from "./types";
+
+export default function App() {
+  const [candidateName, setCandidateName] = useState("求职候选人");
+  const [candidatePhone, setCandidatePhone] = useState("13600000000");
+
+  const [targetJobName, setTargetJobName] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
+  const [candidateBackground, setCandidateBackground] = useState("");
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<TransitionResult | null>(null);
+  const [editableResume, setEditableResume] = useState<RestructuredResume | null>(null);
+  const [currentTab, setCurrentTab] = useState<"scripts" | "strategy" | "resume">("scripts");
+  const [copiedIndex, setCopiedIndex] = useState<string | null>(null);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+
+  // Resume State setters for real-time live editing
+  const updatePersonalInfo = (field: keyof RestructuredResume["personalInfo"], value: string) => {
+    if (!editableResume) return;
+    const updated = {
+      ...editableResume,
+      personalInfo: {
+        ...editableResume.personalInfo,
+        [field]: value
+      }
+    };
+    setEditableResume(updated);
+    if (field === "name") {
+      setCandidateName(value);
+    } else if (field === "phone") {
+      setCandidatePhone(value);
+    }
+  };
+
+  const updateIntro = (value: string) => {
+    if (!editableResume) return;
+    setEditableResume({
+      ...editableResume,
+      intro: value
+    });
+  };
+
+  const updateCoreSkill = (index: number, field: "name" | "description", value: string) => {
+    if (!editableResume) return;
+    const newSkills = [...editableResume.coreSkills];
+    newSkills[index] = { ...newSkills[index], [field]: value };
+    setEditableResume({ ...editableResume, coreSkills: newSkills });
+  };
+
+  const addCoreSkill = () => {
+    if (!editableResume) return;
+    setEditableResume({
+      ...editableResume,
+      coreSkills: [...editableResume.coreSkills, { name: "新核心迁移能力", description: "输入详细的说服或匹配描述（突出可复用的管理、策划、分析或交付产物）" }]
+    });
+  };
+
+  const removeCoreSkill = (index: number) => {
+    if (!editableResume) return;
+    const newSkills = editableResume.coreSkills.filter((_, i) => i !== index);
+    setEditableResume({ ...editableResume, coreSkills: newSkills });
+  };
+
+  const updateWorkExperience = (index: number, field: keyof WorkExperience, value: any) => {
+    if (!editableResume) return;
+    const newXps = [...editableResume.workExperiences];
+    newXps[index] = { ...newXps[index], [field]: value };
+    setEditableResume({ ...editableResume, workExperiences: newXps });
+  };
+
+  const updateAchievement = (xpIndex: number, achIndex: number, value: string) => {
+    if (!editableResume) return;
+    const newXps = [...editableResume.workExperiences];
+    const newAchs = [...newXps[xpIndex].achievements];
+    newAchs[achIndex] = value;
+    newXps[xpIndex] = { ...newXps[xpIndex], achievements: newAchs };
+    setEditableResume({ ...editableResume, workExperiences: newXps });
+  };
+
+  const addAchievement = (xpIndex: number) => {
+    if (!editableResume) return;
+    const newXps = [...editableResume.workExperiences];
+    newXps[xpIndex] = { ...newXps[xpIndex], achievements: [...newXps[xpIndex].achievements, "输入新工作成果成果的描述，推荐遵守 行为+结果 or STAR 原则"] };
+    setEditableResume({ ...editableResume, workExperiences: newXps });
+  };
+
+  const removeAchievement = (xpIndex: number, achIndex: number) => {
+    if (!editableResume) return;
+    const newXps = [...editableResume.workExperiences];
+    const newAchs = newXps[xpIndex].achievements.filter((_, i) => i !== achIndex);
+    newXps[xpIndex] = { ...newXps[xpIndex], achievements: newAchs };
+    setEditableResume({ ...editableResume, workExperiences: newXps });
+  };
+
+  const updatePortfolioProject = (field: keyof PortfolioProject, value: any) => {
+    if (!editableResume) return;
+    setEditableResume({
+      ...editableResume,
+      portfolioProject: {
+        ...editableResume.portfolioProject,
+        [field]: value
+      }
+    });
+  };
+
+  const updateProjectOutput = (outIndex: number, value: string) => {
+    if (!editableResume) return;
+    const newOutputs = [...editableResume.portfolioProject.outputs];
+    newOutputs[outIndex] = value;
+    setEditableResume({
+      ...editableResume,
+      portfolioProject: {
+        ...editableResume.portfolioProject,
+        outputs: newOutputs
+      }
+    });
+  };
+
+  const addProjectOutput = () => {
+    if (!editableResume) return;
+    setEditableResume({
+      ...editableResume,
+      portfolioProject: {
+        ...editableResume.portfolioProject,
+        outputs: [...editableResume.portfolioProject.outputs, "新增的可用高精模拟交付文件或作品"]
+      }
+    });
+  };
+
+  const removeProjectOutput = (outIndex: number) => {
+    if (!editableResume) return;
+    const newOutputs = editableResume.portfolioProject.outputs.filter((_, i) => i !== outIndex);
+    setEditableResume({
+      ...editableResume,
+      portfolioProject: {
+        ...editableResume.portfolioProject,
+        outputs: newOutputs
+      }
+    });
+  };
+
+  // Quick-load demo example
+  const handleLoadExample = (exampleIndex: number) => {
+    const ex = demoExamples[exampleIndex];
+    setTargetJobName(ex.targetJobName);
+    setJobDescription(ex.jobDescription);
+    setCandidateBackground(ex.candidateBackground);
+    setError(null);
+  };
+
+  // Submit form to express backend API
+  const handleGenerateStrategy = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetJobName.trim() || !jobDescription.trim() || !candidateBackground.trim()) {
+      setError("请完整填写岗位名称、岗位JD要求以及您的自身经历情况。");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/transition", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          targetJobName,
+          jobDescription,
+          candidateBackground,
+          candidateName,
+          candidatePhone,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "生成失败，请稍后重试");
+      }
+
+      const data: TransitionResult = await response.json();
+      setResult(data);
+      setEditableResume(data.resumeDetails);
+      setCurrentTab("scripts"); // default view on output load
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "后端AI处理过程出错，请检查配置或稍后重试。");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Safe clipboard helper
+  const handleCopyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedIndex(id);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    }).catch(err => {
+      console.error("Copy failed: ", err);
+    });
+  };
+
+  // Professional client-side PDF Generator (Bypasses iframe sandbox print blockages)
+  const handleDownloadPDF = () => {
+    if (!editableResume) return;
+    setPdfGenerating(true);
+    
+    const element = document.getElementById("resume-print-area");
+    if (!element) {
+      alert("未找到可打印的简历区域！请先确保简历区域已渲染。");
+      setPdfGenerating(false);
+      return;
+    }
+    
+    const originalTitle = document.title;
+    const fileName = editableResume.personalInfo.customPdfName || `${targetJobName}_${candidateName}_${candidatePhone}（微信同号）`;
+    
+    // Set document title temporarily to ensure default save name matches
+    document.title = fileName;
+    
+    const startRendering = () => {
+      const html2pdf = (window as any).html2pdf;
+      if (!html2pdf) {
+        setPdfGenerating(false);
+        alert("PDF 转换库正在加载，请稍等 1-2 秒后再次点击！");
+        return;
+      }
+      
+      const opt = {
+        margin: [10, 10, 10, 10], // top, left, bottom, right in mm
+        filename: `${fileName}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true,
+          letterRendering: true,
+          logging: false 
+        },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+      };
+      
+      html2pdf().from(element).set(opt).save().then(() => {
+        setPdfGenerating(false);
+        document.title = originalTitle;
+      }).catch((err: any) => {
+        console.error("html2pdf processing failed: ", err);
+        setPdfGenerating(false);
+        document.title = originalTitle;
+        // fallback to standard window.print if library failed
+        window.print();
+      });
+    };
+
+    if (!(window as any).html2pdf) {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+      script.integrity = "sha512-VUFz6oG6byisbIuMv9X2N7S+sX4mXbgXn8p0rU0ZkF8JpxR2iFAb8N9nZpYxXpQbgI/FhP1W9gE2gq1uS46/eA==";
+      script.crossOrigin = "anonymous";
+      script.onload = () => {
+        setTimeout(startRendering, 400);
+      };
+      script.onerror = () => {
+        setPdfGenerating(false);
+        // Fallback directly to native print if script could not load
+        window.print();
+      };
+      document.body.appendChild(script);
+    } else {
+      startRendering();
+    }
+  };
+
+  // Browser Print option (keeps vector text details if requested)
+  const handlePrintPDF = () => {
+    if (!editableResume) return;
+    const originalTitle = document.title;
+    const fileName = editableResume.personalInfo.customPdfName || `${targetJobName}_${candidateName}_${candidatePhone}（微信同号）`;
+    document.title = fileName;
+    setTimeout(() => {
+      window.print();
+      document.title = originalTitle;
+    }, 150);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col font-sans selection:bg-[#E2E8F0] selection:text-[#0F172A]">
+      {/* Dynamic Title and Workspace Bar */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#EDF2F7] px-6 py-4 no-print">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-[#111827] text-white p-2.5 rounded-xl shadow-sm">
+              <Sparkles className="h-5 w-5 text-indigo-400" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-[#111827] flex items-center gap-2">
+                简历重构与跨行求职策略平台
+                <span className="text-xs bg-indigo-50 text-indigo-600 font-medium px-2 py-0.5 rounded-full border border-indigo-100">
+                  招聘方思维模拟版
+                </span>
+              </h1>
+              <p className="text-xs text-[#64748B]">
+                跨行业求职策略专家 + 招聘方风险评估 + 高匹配度场景化简历重构系统
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 text-xs text-[#64748B]">
+            <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-md border border-emerald-100 font-mono">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              AI 策略服务端就绪
+            </span>
+            <span className="hidden sm:inline text-slate-300">|</span>
+            <span className="hidden sm:inline">
+              当前用户: <strong className="text-slate-800 font-semibold">{candidateName} ({candidatePhone})</strong>
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Body */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 md:px-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Left Panel: Inputs & Presets (no-print) */}
+          <div className="lg:col-span-5 space-y-6 no-print">
+            
+            {/* Value Proposition Statement */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm space-y-3">
+              <div className="flex items-center gap-2 text-indigo-600 font-semibold text-sm">
+                <Award className="h-4 w-4" />
+                <span>求职策略底层原理</span>
+              </div>
+              <p className="text-xs leading-relaxed text-[#475569]">
+                招聘方拒绝跨行投递的本质是 
+                <strong className="text-slate-900 mx-0.5 font-bold">“高试错成本”</strong>。
+                本系统通过重构高情商问询话术进行“自我成交”，制定 <strong>7天硬核实战</strong> 补齐能力，并以
+                <strong>“行为+结果”场景化案例</strong> 重塑简历，一瞬间降低HR高风险判断。
+              </p>
+            </div>
+
+            {/* Quick Demo Templates */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  快速体验高端跨行重组模板
+                </span>
+                <span className="text-[11px] text-[#475569] bg-slate-100 rounded-md px-2 py-0.5">
+                  一键填入
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-2.5">
+                {demoExamples.map((ex, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleLoadExample(i)}
+                    className="w-full text-left p-3.5 rounded-xl border border-slate-100 bg-[#FAFAFB] hover:bg-white hover:border-indigo-200 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all group"
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                        {ex.badge}
+                      </span>
+                      <ChevronRight className="h-3 w-3 text-slate-400 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                    <span className="text-xs font-medium text-slate-800 line-clamp-1 block">
+                      {ex.title}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Core Form */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-sm">
+              <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+                <Briefcase className="h-4 w-4 text-indigo-600" />
+                <span>输入求职岗位与个人履历</span>
+              </h2>
+
+              <form onSubmit={handleGenerateStrategy} className="space-y-4">
+                {/* Candidate Base Info Settings */}
+                <div className="bg-indigo-50/55 p-4 rounded-xl border border-indigo-100/60 space-y-3 mb-2">
+                  <span className="text-[11px] font-bold text-indigo-700 uppercase tracking-wider block flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                    👤 候选人姓名与联系方式 (支持随时修改)
+                  </span>
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label htmlFor="cand-name-input" className="block text-[10px] font-extrabold text-[#475569] mb-1">
+                        姓名
+                      </label>
+                      <input
+                        id="cand-name-input"
+                        type="text"
+                        required
+                        value={candidateName}
+                        onChange={(e) => setCandidateName(e.target.value)}
+                        placeholder="郭鑫"
+                        className="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors font-medium text-slate-850"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="cand-phone-input" className="block text-[10px] font-extrabold text-[#475569] mb-1">
+                        联系电话 / 微信同号
+                      </label>
+                      <input
+                        id="cand-phone-input"
+                        type="text"
+                        required
+                        value={candidatePhone}
+                        onChange={(e) => setCandidatePhone(e.target.value)}
+                        placeholder="13600000000"
+                        className="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors font-medium text-slate-850"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Job Name */}
+                <div>
+                  <label htmlFor="job-name" className="block text-xs font-bold text-slate-700 mb-1.5 flex justify-between items-center">
+                    <span>1. 目标岗位名称</span>
+                    <span className="text-[10px] text-slate-400 font-normal">例如：初级门店主管 / 活动运营</span>
+                  </label>
+                  <input
+                    id="job-name"
+                    type="text"
+                    required
+                    value={targetJobName}
+                    onChange={(e) => setTargetJobName(e.target.value)}
+                    placeholder="输入您希望成功转行的目标岗位..."
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+
+                {/* Job JD */}
+                <div>
+                  <label htmlFor="job-jd" className="block text-xs font-bold text-slate-700 mb-1.5 flex justify-between items-center">
+                    <span>2. 目标岗位描述 (JD) 要求</span>
+                    <span className="text-[10px] text-indigo-600 font-normal">粘贴JD可帮AI精准找痛点</span>
+                  </label>
+                  <textarea
+                    id="job-jd"
+                    required
+                    rows={5}
+                    value={jobDescription}
+                    onChange={(e) => setJobDescription(e.target.value)}
+                    placeholder="将招聘网站上的岗位职责、要求说明粘贴在这里，以便系统梳理招聘方的‘高危顾虑点’..."
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors resize-y leading-relaxed font-sans"
+                  />
+                </div>
+
+                {/* Candidate Background */}
+                <div>
+                  <label htmlFor="cand-bg" className="block text-xs font-bold text-slate-700 mb-1.5 flex justify-between items-center">
+                    <span>3. 候选人自身情况 (经历 / 技巧 / 转型原因)</span>
+                    <span className="text-[10px] text-indigo-600 font-normal">{candidateName}，可顺带写明您原本的行业</span>
+                  </label>
+                  <textarea
+                    id="cand-bg"
+                    required
+                    rows={6}
+                    value={candidateBackground}
+                    onChange={(e) => setCandidateBackground(e.target.value)}
+                    placeholder="例如：原大厂在线客服3年，善于高难度纠纷降级、带过新人，拥有客服质检意识；想转型咖啡店或零售主管，觉得客服技能完全可以平移..."
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors resize-y leading-relaxed font-sans"
+                  />
+                  <div className="mt-2 bg-slate-50 border border-slate-100 rounded-lg p-3 text-[11px] text-slate-500 space-y-1">
+                    <p className="font-semibold text-slate-700">💡 专家提示（招聘视角）：</p>
+                    <p>不用追求简历看似跨度大。AI会将旧技能（如“多方协调、抗压、排班”）提炼重新描述，生成令人惊叹的新岗位强匹配资产。</p>
+                  </div>
+                </div>
+
+                {/* Action button */}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-[#111827] hover:bg-slate-800 text-white font-semibold text-xs py-3 px-4 rounded-xl shadow-sm hover:shadow transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin text-indigo-400" />
+                      <span>正在以招聘专家视角重组分析中 (约需10s)...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-3.5 w-3.5" />
+                      <span>开启“降低风险”跨行求职包重构</span>
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {error && (
+                <div className="mt-4 p-3.5 bg-rose-50 border border-rose-100 rounded-xl flex items-start gap-2 text-rose-700 text-xs">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-rose-500 mt-0.5" />
+                  <p className="leading-relaxed">{error}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Panel: Rendered Insights and Output (Interactive Tabs) */}
+          <div className="lg:col-span-7 space-y-6">
+
+            {!result && !loading && (
+              <div className="bg-white rounded-3xl border border-dashed border-slate-200/90 p-12 text-center space-y-5 shadow-sm min-h-[500px] flex flex-col items-center justify-center">
+                <div className="bg-slate-50 p-4 rounded-full border border-slate-100">
+                  <FileText className="h-10 w-10 text-slate-400" />
+                </div>
+                <div className="max-w-md mx-auto space-y-2">
+                  <h3 className="text-sm font-bold text-slate-800">
+                    等待重构跨行求职核心资产
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    在左侧选择 <span className="text-indigo-600 font-medium">“快速体验高端跨行重组模板”</span> 进行一键填充，或者手动填写目标岗招聘信息及您目前的岗位情况。
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-lg w-full pt-4">
+                  <div className="p-3 border border-slate-100 rounded-xl bg-slate-50/50 text-left">
+                    <div className="font-bold text-xs text-slate-700 mb-1">💬 自我成交话术</div>
+                    <p className="text-[10px] text-slate-400 leading-relaxed">三款不同语境，极富职场情商，绝非无用低价值提问。</p>
+                  </div>
+                  <div className="p-3 border border-slate-100 rounded-xl bg-slate-50/50 text-left">
+                    <div className="font-bold text-xs text-slate-700 mb-1">🛡️ 7天突击演练</div>
+                    <p className="text-[10px] text-slate-400 leading-relaxed">明确漏洞指标、每天安排实战练习及有形象资料沉淀。</p>
+                  </div>
+                  <div className="p-3 border border-slate-100 rounded-xl bg-slate-50/50 text-left">
+                    <div className="font-bold text-xs text-slate-700 mb-1">📄 拟真高配简历</div>
+                    <p className="text-[10px] text-slate-400 leading-relaxed">彻底改写死板的原经历，新增精美模拟项目让您变业内人。</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {loading && (
+              <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center shadow-sm min-h-[500px] flex flex-col items-center justify-center space-y-6">
+                <div className="relative">
+                  <div className="h-16 w-16 rounded-full border-4 border-slate-100 border-t-indigo-600 animate-spin"></div>
+                  <Sparkles className="h-6 w-6 text-indigo-400 absolute inset-0 m-auto animate-pulse" />
+                </div>
+                <div className="space-y-2 max-w-sm">
+                  <h3 className="text-sm font-bold text-slate-800">
+                    正在扮演卓越招聘总监与职业包装专家
+                  </h3>
+                  <div className="text-xs text-slate-500 space-y-1.5 leading-relaxed">
+                    <p className="animate-pulse">✍️ 拆解JD常态化痛点与隐藏硬性需求...</p>
+                    <p className="animate-pulse delay-200 text-[#475569]">⚡ 翻译并提炼核心可迁移技能，实现数据行为化重构...</p>
+                    <p className="animate-pulse delay-500">🛡️ 模型组装定制仿真的求职利器级“模拟项目”大纲...</p>
+                  </div>
+                </div>
+                <div className="w-48 bg-slate-100 h-1 rounded-full overflow-hidden">
+                  <div className="bg-indigo-600 h-full w-2/3 rounded-full animate-infinite-scroll"></div>
+                </div>
+              </div>
+            )}
+
+            {result && !loading && (
+              <div className="space-y-6">
+                
+                {/* Switcher Tab Header (no-print) */}
+                <div className="bg-white rounded-xl border border-slate-200 p-1.5 shadow-sm flex items-center justify-between no-print">
+                  <nav className="flex space-x-1" aria-label="Tabs">
+                    <button
+                      onClick={() => setCurrentTab("scripts")}
+                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                        currentTab === "scripts"
+                          ? "bg-[#111827] text-white shadow-sm"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Smartphone className="h-3.5 w-3.5" />
+                      <span>① 投递前问询话术</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => setCurrentTab("strategy")}
+                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                        currentTab === "strategy"
+                          ? "bg-[#111827] text-white shadow-sm"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                      }`}
+                    >
+                      <Layers className="h-3.5 w-3.5" />
+                      <span>② 7天硬核备战</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => setCurrentTab("resume")}
+                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                        currentTab === "resume"
+                          ? "bg-[#111827] text-white shadow-sm"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                      }`}
+                    >
+                      <FileCheck className="h-3.5 w-3.5" />
+                      <span>③ 定制简历预检</span>
+                    </button>
+                  </nav>
+
+                  {/* Right side download action fast access */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleDownloadPDF}
+                      disabled={pdfGenerating}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white py-1.5 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                    >
+                      {pdfGenerating ? (
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      <span>{pdfGenerating ? "正在转码..." : "下载 PDF"}</span>
+                    </button>
+                    <button
+                      onClick={handlePrintPDF}
+                      className="border border-slate-200 py-1.5 px-3 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer transition-colors"
+                      title="通过浏览器保存或打印（备用）"
+                    >
+                      <span>打印/另存</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* TAB 1: Inquiry Scripts */}
+                {currentTab === "scripts" && (
+                  <div className="space-y-6 no-print">
+                    <div className="bg-[#111827] text-white rounded-2xl p-6 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-8 transform translate-x-10 -translate-y-10 opacity-10">
+                        <Smartphone className="h-40 w-40 text-white" />
+                      </div>
+                      <div className="relative space-y-2">
+                        <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                          成交导向的私信话术
+                        </span>
+                        <h3 className="text-base font-bold">高情商投递前沟通话术</h3>
+                        <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
+                          严禁问“收不收转行的”或做低价值提问。以下3种话术旨在顺带表达对行业的认知、亮明不可替代的可迁移核心优势、表明降低试错成本的主动态度。
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                      {/* Robust style */}
+                      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm space-y-3 relative group hover:border-slate-300 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-slate-400"></span>
+                            <h4 className="text-xs font-bold text-slate-700">【风格 ①】传统行业稳重型</h4>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            字数：{result.inquiryScripts.steady.length}字 (80-120最佳)
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 bg-slate-50 p-4 rounded-xl leading-relaxed border border-slate-100 font-serif">
+                          “{result.inquiryScripts.steady}”
+                        </p>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-[#475569]">
+                            🎯 适合岗位：传统、稳重规范的重资产行业，更偏逻辑与持久承载力
+                          </span>
+                          <button
+                            onClick={() => handleCopyToClipboard(result.inquiryScripts.steady, "steady")}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1 px-2.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            {copiedIndex === "steady" ? (
+                              <>
+                                <Check className="h-3 w-3 text-emerald-600" />
+                                <span className="text-emerald-700 font-medium">已复制</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3 w-3" />
+                                <span>复制此话术</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Active style */}
+                      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm space-y-3 relative group hover:border-slate-300 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                            <h4 className="text-xs font-bold text-slate-700">【风格 ②】服务/销售主动进攻型</h4>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            字数：{result.inquiryScripts.active.length}字 (80-120最佳)
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 bg-slate-50 p-4 rounded-xl leading-relaxed border border-slate-100 font-serif">
+                          “{result.inquiryScripts.active}”
+                        </p>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-[#475569]">
+                            🎯 适合岗位：对绩效成长、执行节奏、销售扩张要求极其饥渴的业态
+                          </span>
+                          <button
+                            onClick={() => handleCopyToClipboard(result.inquiryScripts.active, "active")}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1 px-2.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            {copiedIndex === "active" ? (
+                              <>
+                                <Check className="h-3 w-3 text-emerald-600" />
+                                <span className="text-emerald-700 font-medium">已复制</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3 w-3" />
+                                <span>复制此话术</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Casual style */}
+                      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm space-y-3 relative group hover:border-slate-300 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+                            <h4 className="text-xs font-bold text-slate-700">【风格 ③】店面基础轻沟通型</h4>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            字数：{result.inquiryScripts.casual.length}字 (80-120最佳)
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-600 bg-slate-50 p-4 rounded-xl leading-relaxed border border-slate-100 font-serif">
+                          “{result.inquiryScripts.casual}”
+                        </p>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-[#475569]">
+                            🎯 适合岗位：餐饮门店茶饮店兼兼职、高流转初级岗位，快速决策
+                          </span>
+                          <button
+                            onClick={() => handleCopyToClipboard(result.inquiryScripts.casual, "casual")}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1 px-2.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            {copiedIndex === "casual" ? (
+                              <>
+                                <Check className="h-3 w-3 text-emerald-600" />
+                                <span className="text-emerald-700 font-medium">已复制</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3 w-3" />
+                                <span>复制此话术</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: Preparation Strategy */}
+                {currentTab === "strategy" && (
+                  <div className="space-y-6 no-print">
+                    
+                    {/* Core Gaps */}
+                    <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm space-y-4">
+                      <div className="flex items-center gap-2 text-rose-600">
+                        <AlertTriangle className="h-5 w-5" />
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-rose-700">
+                          招聘方视角的真实能力漏洞 (极其直接，不要客气)
+                        </h4>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-2">
+                        {result.prepStrategy.skillsGap.map((gap, index) => (
+                          <div key={index} className="bg-rose-50/50 border border-rose-100 p-3.5 rounded-xl flex items-start gap-2.5">
+                            <span className="bg-rose-100 text-rose-800 text-xs font-bold rounded-lg h-5 w-5 flex items-center justify-center shrink-0 mt-0.5">
+                              {index + 1}
+                            </span>
+                            <div className="space-y-1">
+                              <p className="text-xs font-bold text-slate-800">
+                                {gap.split("：")[0] || "痛点发现"}
+                              </p>
+                              <p className="text-[11px] text-slate-600 leading-relaxed">
+                                {gap.split("：")[1] || gap}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 7-Day Timeline */}
+                    <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-sm space-y-5">
+                      <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                        <Calendar className="text-indigo-600 h-4 w-4" />
+                        <h4 className="text-xs font-bold text-slate-800">连锁岗位“7天超高压硬核行军备战方案”</h4>
+                      </div>
+                      
+                      <div className="relative border-l-2 border-slate-100 pl-5 space-y-6 ml-3">
+                        {result.prepStrategy.sevenDayPlan.map((plan, index) => (
+                          <div key={index} className="relative group">
+                            {/* Dot */}
+                            <span className="absolute -left-[29px] top-1.5 bg-indigo-600 text-white font-mono text-[9px] font-bold h-4 w-4 rounded-full flex items-center justify-center border-2 border-white box-content shadow-sm group-hover:scale-110 transition-transform">
+                              {plan.day}
+                            </span>
+                            
+                            <div className="space-y-2 bg-[#FAFAFB] group-hover:bg-white border border-slate-100 group-hover:border-slate-200 rounded-xl p-4 transition-all">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-[#111827]">
+                                  第 {plan.day} 天：{plan.focus}
+                                </span>
+                                <span className="text-[10px] text-indigo-600 bg-indigo-50 font-bold px-2 py-0.5 rounded">
+                                  行军计划
+                                </span>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1 text-[11px] border-t border-dashed border-slate-100">
+                                <div>
+                                  <span className="font-semibold text-slate-700 block mb-0.5">📚 硬核知识注入:</span>
+                                  <p className="text-slate-600 leading-relaxed">{plan.learn}</p>
+                                </div>
+                                <div>
+                                  <span className="font-semibold text-slate-700 block mb-0.5">⚡ 模拟实操练手:</span>
+                                  <p className="text-slate-600 leading-relaxed">{plan.practice}</p>
+                                </div>
+                                <div>
+                                  <span className="font-semibold text-indigo-600 block mb-0.5">📦 有形交付产出:</span>
+                                  <p className="text-[#334155] leading-relaxed font-medium bg-indigo-50/25 p-1 rounded border border-indigo-100/50">{plan.output}</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Critical Portfolio Materials */}
+                    <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm space-y-4">
+                      <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                        <BookOpen className="text-indigo-600 h-4 w-4" />
+                        <h4 className="text-xs font-bold text-slate-800">
+                          面试敲门砖：必须自备的“仿真证明材料”大纲
+                        </h4>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4">
+                        {result.prepStrategy.portfolioMaterials.map((mat, i) => (
+                          <div key={i} className="border border-slate-100 rounded-2xl bg-[#FAFAFB] p-4 space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-200/50 pb-2">
+                              <span className="text-xs font-bold text-indigo-700 flex items-center gap-1.5">
+                                <FileText className="h-3.5 w-3.5 shrink-0" />
+                                {mat.type}
+                              </span>
+                              <span className="text-[10px] uppercase font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-100">
+                                能力证明书
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                              <div>
+                                <span className="font-semibold text-slate-700 block mb-1">🎯 痛点对焦：</span>
+                                <p className="text-slate-600 text-[11px] leading-relaxed">{mat.description}</p>
+                              </div>
+                              <div>
+                                <span className="font-semibold text-indigo-600 block mb-1">💡 额外证明了你具备：</span>
+                                <p className="text-slate-600 text-[11px] leading-relaxed">{mat.value}</p>
+                              </div>
+                            </div>
+
+                            <div className="bg-white border border-slate-100 p-3 rounded-xl space-y-2">
+                              <span className="text-[10px] font-bold text-[#1F2937] uppercase tracking-wider block">
+                                🛠️ 【参考范本大纲 / 指导细节】
+                              </span>
+                              <pre className="text-[11px] text-[#475569] leading-relaxed whitespace-pre-wrap font-mono bg-slate-50/50 p-2.5 rounded border border-slate-100">
+                                {mat.templateExample}
+                              </pre>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 3: Restructured Resume Profile (No-print controls + Print-area) */}
+                {currentTab === "resume" && editableResume && (
+                  <div className="space-y-6 animate-fadeIn pb-12">
+                    {/* Inline Tips (no-print) */}
+                    <div className="bg-[#EEF2F6] border border-[#CBD5E1] p-5 rounded-2xl flex items-start gap-4 no-print shadow-xs">
+                      <Bookmark className="h-6 w-6 text-[#475569] shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                          <span>✨ 智能在线高分工作台 (已开启实时在线修改)</span>
+                          <span className="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full text-[9px] font-bold">LIVE-EDITABLE</span>
+                        </h4>
+                        <p className="text-xs text-[#475569] leading-relaxed">
+                          对模型自动重构的表达不满意？<strong>无需导出，您可直接在下方简历区域中直接点击并编辑任意文字</strong>！可实时重命名、增删履历、润色话术。
+                        </p>
+                        <div className="pt-2 flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={handleDownloadPDF}
+                            disabled={pdfGenerating}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-1.5 px-3.5 rounded-lg shadow-sm flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                          >
+                            {pdfGenerating ? (
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Download className="h-3 w-3" />
+                            )}
+                            <span>{pdfGenerating ? "正在生成极清PDF..." : "点击下载 PDF 简历"}</span>
+                          </button>
+                          
+                          <button
+                            onClick={handlePrintPDF}
+                            className="border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs py-1.5 px-3 rounded-lg shadow-2xs flex items-center gap-1 cursor-pointer transition-colors"
+                            title="适合喜欢高精度缩放排版打印的用户，在 iframe 中如无反应可点击右上角新窗口运行本网页"
+                          >
+                            <span>备用：浏览器排版与另存</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* RENDERED RESUME DOCUMENT (Ready for elegant browser saving/printing) */}
+                    <div 
+                      id="resume-print-area" 
+                      className="bg-white rounded-3xl border border-slate-200 px-8 py-10 md:px-12 md:py-14 shadow-md max-w-[210mm] mx-auto text-slate-800 font-sans leading-relaxed tracking-normal transition-all"
+                    >
+                      {/* Personal Info Header */}
+                      <header className="border-b-2 border-slate-900 pb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                        <div>
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="text"
+                              value={editableResume.personalInfo.name}
+                              onChange={(e) => updatePersonalInfo("name", e.target.value)}
+                              className="text-2xl md:text-3xl font-black text-slate-950 uppercase tracking-tight bg-transparent hover:bg-slate-50 focus:bg-white border-b border-dashed border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none transition-colors max-w-[220px] rounded px-1 py-0.5"
+                              placeholder="姓名"
+                              title="点击编辑姓名"
+                            />
+                            <span className="text-xs bg-slate-100 text-slate-700 font-bold px-2.5 py-1 rounded border border-slate-200 mt-1 uppercase">
+                              转型实干者
+                            </span>
+                          </div>
+                          
+                          <div className="text-[#4F46E5] font-bold text-base mt-2 flex items-center gap-1 bg-indigo-50/50 border border-indigo-100/40 px-3 py-1 rounded-lg w-max shadow-3xs">
+                            <Briefcase className="h-[15px] w-[15px] shrink-0 text-[#4F46E5]" />
+                            <span className="text-xs text-[#4F46E5] font-semibold mr-1">意向岗位：</span>
+                            <input
+                              type="text"
+                              value={editableResume.personalInfo.jobTitle}
+                              onChange={(e) => updatePersonalInfo("jobTitle", e.target.value)}
+                              className="bg-transparent font-bold text-[#4F46E5] hover:bg-white focus:bg-white border-b border-dashed border-transparent hover:border-indigo-300 focus:border-indigo-500 focus:outline-none transition-all text-sm px-1 rounded"
+                              placeholder="意向岗位"
+                              title="点击编辑意向岗位"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Contacts Panel */}
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs text-slate-600 font-mono">
+                          <span className="flex items-center gap-1 justify-end">
+                            <Smartphone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <input
+                              type="text"
+                              value={editableResume.personalInfo.phone}
+                              onChange={(e) => updatePersonalInfo("phone", e.target.value)}
+                              className="bg-transparent text-right hover:bg-slate-50 focus:bg-white border-b border-dashed border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none transition-all text-xs font-mono max-w-[125px] rounded px-0.5"
+                              title="点击编辑联系电话"
+                            />
+                          </span>
+                          <span className="flex items-center gap-1 justify-end font-sans">
+                            <span className="text-slate-400 text-xs shrink-0 font-mono">微信:</span>
+                            <input
+                              type="text"
+                              value={editableResume.personalInfo.wechat}
+                              onChange={(e) => updatePersonalInfo("wechat", e.target.value)}
+                              className="bg-transparent text-right hover:bg-slate-50 focus:bg-white border-b border-dashed border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none transition-all text-xs font-mono max-w-[125px] rounded px-0.5"
+                              title="点击编辑微信号码"
+                            />
+                          </span>
+                          <span className="flex items-center gap-1 justify-end">
+                            <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <input
+                              type="text"
+                              value={editableResume.personalInfo.email}
+                              onChange={(e) => updatePersonalInfo("email", e.target.value)}
+                              className="bg-transparent text-right hover:bg-slate-50 focus:bg-white border-b border-dashed border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none transition-all text-xs font-mono max-w-[150px] rounded px-0.5"
+                              title="点击编辑邮箱"
+                            />
+                          </span>
+                          <span className="flex items-center gap-1 justify-end font-sans">
+                            <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <input
+                              type="text"
+                              value={editableResume.personalInfo.location}
+                              onChange={(e) => updatePersonalInfo("location", e.target.value)}
+                              className="bg-transparent text-right hover:bg-slate-50 focus:bg-white border-b border-dashed border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none transition-all text-xs font-mono max-w-[125px] rounded px-0.5"
+                              title="点击编辑所在城市"
+                            />
+                          </span>
+                        </div>
+                      </header>
+
+                      {/* Personal Statement / Rational Career Shift Explanation */}
+                      <section className="mt-8 space-y-2 resume-section">
+                        <h4 className="text-xs uppercase font-extrabold text-slate-400 tracking-widest flex items-center gap-2">
+                          <span>01 / 个人转型自述 ( rational career transition )</span>
+                          <span className="h-[1px] bg-slate-200 flex-1"></span>
+                        </h4>
+                        <div className="bg-[#FAFAFB] border-l-4 border-slate-900 p-2 rounded-r-xl">
+                          <textarea
+                            value={editableResume.intro}
+                            onChange={(e) => updateIntro(e.target.value)}
+                            rows={3}
+                            className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded p-2 focus:outline-none transition-all font-sans text-xs leading-relaxed text-[#374151] resize-y"
+                            placeholder="请描述您的转型合理化、降险、并强关联新岗位的自述亮点..."
+                            title="在线修改个人转型自述"
+                          />
+                        </div>
+                      </section>
+
+                      {/* Transferrable Core Competencies */}
+                      <section className="mt-8 space-y-3 resume-section">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs uppercase font-extrabold text-slate-400 tracking-widest flex items-center gap-2 flex-1">
+                            <span>02 / 核心可迁移能力 ( core transferrable competencies )</span>
+                            <span className="h-[1px] bg-slate-200 flex-1"></span>
+                          </h4>
+                          <button
+                            onClick={addCoreSkill}
+                            className="ml-2 bg-indigo-50 hover:bg-indigo-100 text-[#4F46E5] text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 flex items-center gap-1 transition-colors cursor-pointer no-print"
+                          >
+                            + 新增能力域
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {editableResume.coreSkills.map((skill, si) => (
+                            <div key={si} className="border border-slate-100 rounded-xl p-3 bg-white shadow-xs relative hover:border-slate-200 transition-all">
+                              <div className="flex items-center justify-between gap-1.5 mb-1 bg-slate-50/10 px-1 rounded">
+                                <div className="flex items-center gap-1.5 w-full">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 shrink-0"></span>
+                                  <input
+                                    type="text"
+                                    value={skill.name}
+                                    onChange={(e) => updateCoreSkill(si, "name", e.target.value)}
+                                    className="bg-transparent font-extrabold text-[#111827] text-[12px] hover:bg-slate-50 focus:bg-white focus:outline-none transition-all w-full border-b border-dashed border-transparent hover:border-slate-200 rounded px-0.5 font-bold"
+                                    placeholder="输入迁移能力名称"
+                                  />
+                                </div>
+                                <button
+                                  onClick={() => removeCoreSkill(si)}
+                                  className="text-rose-500 hover:text-rose-700 font-bold text-[10px] transition-colors hover:underline flex-shrink-0 no-print"
+                                  title="删除该项技能"
+                                >
+                                  删除
+                                </button>
+                              </div>
+                              <textarea
+                                value={skill.description}
+                                onChange={(e) => updateCoreSkill(si, "description", e.target.value)}
+                                rows={2}
+                                className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded p-1 text-xs text-[#4B5563] leading-relaxed resize-y focus:outline-none transition-all font-sans"
+                                placeholder="输入关于此技能的可复用性描述与常识积累"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+
+                      {/* Matched & Refocused Experience Panel */}
+                      <section className="mt-8 space-y-4 resume-section">
+                        <h4 className="text-xs uppercase font-extrabold text-slate-400 tracking-widest flex items-center gap-2">
+                          <span>03 / 重构工作经历 ( targeted experience re-alignment )</span>
+                          <span className="h-[1px] bg-slate-200 flex-1"></span>
+                        </h4>
+
+                        <div className="space-y-6">
+                          {editableResume.workExperiences.map((xp, index) => (
+                            <div key={index} className="space-y-3 border-b border-slate-100 pb-5 last:border-0 last:pb-0 relative">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                                <input
+                                  type="text"
+                                  value={xp.company}
+                                  onChange={(e) => updateWorkExperience(index, "company", e.target.value)}
+                                  className="text-xs font-black text-slate-900 text-sm bg-transparent hover:bg-slate-50 focus:bg-white border-b border-dashed border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none transition-all px-1 rounded max-w-[180px]"
+                                  placeholder="公司名称"
+                                />
+                                <div className="flex flex-wrap items-center gap-1 text-xs text-slate-500 font-mono">
+                                  <input
+                                    type="text"
+                                    value={xp.role}
+                                    onChange={(e) => updateWorkExperience(index, "role", e.target.value)}
+                                    className="bg-transparent font-medium hover:bg-slate-50 focus:bg-white border-b border-dashed border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none transition-all px-1 text-xs text-slate-600 max-w-[130px] rounded"
+                                    placeholder="岗位角色"
+                                  />
+                                  <span className="text-slate-300">|</span>
+                                  <input
+                                    type="text"
+                                    value={xp.duration}
+                                    onChange={(e) => updateWorkExperience(index, "duration", e.target.value)}
+                                    className="bg-transparent font-medium hover:bg-slate-50 focus:bg-white border-b border-dashed border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none transition-all px-1 text-xs text-slate-600 max-w-[140px] rounded"
+                                    placeholder="在职时间"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Highlight box */}
+                              <div className="bg-[#FAFAFB] px-3.5 py-2 rounded-lg border border-slate-100 text-[11px] text-slate-600 font-medium">
+                                <span className="text-indigo-600 font-bold block mb-0.5 uppercase tracking-wide">
+                                  🔄 跨界迁移亮点提炼 / Rational Connection:
+                                </span>
+                                <textarea
+                                  value={xp.highlight}
+                                  onChange={(e) => updateWorkExperience(index, "highlight", e.target.value)}
+                                  rows={2}
+                                  className="w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded p-1 text-[11px] text-slate-600 font-medium leading-relaxed resize-y focus:outline-none transition-all font-sans"
+                                  placeholder="阐述在这个岗位上沉淀的可立刻平移到目标岗的王牌属性..."
+                                />
+                              </div>
+
+                              {/* Action details with STAR structure */}
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between no-print mb-1">
+                                  <span className="text-[10px] uppercase font-bold text-slate-400">📊 模块化真实匹配经历清单 (支持单独删加)</span>
+                                  <button
+                                    onClick={() => addAchievement(index)}
+                                    className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[9px] font-bold px-2 py-0.5 rounded border border-emerald-100 transition-colors cursor-pointer"
+                                  >
+                                    + 新增成果描述
+                                  </button>
+                                </div>
+                                <ul className="list-disc list-outside pl-4 space-y-1.5 text-xs text-[#374151]">
+                                  {xp.achievements.map((ach, ai) => (
+                                    <li key={ai} className="leading-relaxed relative pr-12 group/ach border-b border-slate-50 pb-1 hover:border-slate-100">
+                                      <input
+                                        type="text"
+                                        value={ach}
+                                        onChange={(e) => updateAchievement(index, ai, e.target.value)}
+                                        className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border-b border-dashed border-transparent hover:border-slate-200 focus:border-indigo-500 focus:outline-none transition-colors text-xs text-[#374151] font-normal"
+                                        placeholder="利用 STAR 框架补充您的实操方案、量化细节，字数约 30-70"
+                                      />
+                                      <button
+                                        onClick={() => removeAchievement(index, ai)}
+                                        className="absolute right-0 top-0.5 text-rose-500 hover:text-rose-700 text-[10px] transition-all hover:underline no-print flex items-center gap-0.5 cursor-pointer font-bold"
+                                        title="删除此项成果"
+                                      >
+                                        删除
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+
+                      {/* Specialized Heavyweight Project/Assignment Blueprint */}
+                      <section className="mt-8 space-y-3 resume-section border-t-2 border-dashed border-slate-200 pt-6">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs uppercase font-extrabold text-slate-400 tracking-widest flex items-center gap-2 flex-1">
+                            <span>04 / 定向备战攻坚项目 ( simulated key operations case study )</span>
+                            <span className="h-[1px] bg-slate-200 flex-1"></span>
+                          </h4>
+                        </div>
+
+                        <div className="border border-slate-200 rounded-2xl p-4 md:p-5 bg-slate-50/50 space-y-3.5">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-slate-200/60 pb-2">
+                            <div className="flex items-center gap-1.5 w-full">
+                              <Sparkles className="h-4 w-4 text-amber-500 shrink-0" />
+                              <input
+                                type="text"
+                                value={editableResume.portfolioProject.name}
+                                onChange={(e) => updatePortfolioProject("name", e.target.value)}
+                                className="bg-transparent font-black text-slate-900 text-[13px] hover:bg-slate-100 focus:bg-white border-b border-dashed border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none transition-colors w-full px-1 py-0.5 rounded"
+                                placeholder="攻坚项目/实操成果名称"
+                              />
+                            </div>
+                            <div className="flex items-center gap-1 font-mono text-[10px] text-[#4B5563] bg-white px-2 py-0.5 rounded-full border border-slate-200 shadow-3xs shrink-0">
+                              <span>角色:</span>
+                              <input
+                                type="text"
+                                value={editableResume.portfolioProject.role}
+                                onChange={(e) => updatePortfolioProject("role", e.target.value)}
+                                className="bg-transparent font-bold hover:bg-slate-50 focus:bg-white border-b border-dashed border-transparent hover:border-slate-300 focus:border-indigo-500 focus:outline-none transition-colors max-w-[100px] px-1 text-[10px] rounded text-[#4B5563]"
+                                placeholder="角色"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="text-xs">
+                            <span className="font-extrabold text-[#111827] block mb-1">🎯 核心攻坚背景与主导思路：</span>
+                            <textarea
+                              value={editableResume.portfolioProject.description}
+                              onChange={(e) => updatePortfolioProject("description", e.target.value)}
+                              rows={2}
+                              className="w-full bg-transparent hover:bg-slate-100 focus:bg-white border border-transparent hover:border-slate-200 focus:border-indigo-500 rounded p-1 text-xs text-slate-600 leading-relaxed resize-y focus:outline-none transition-all font-sans"
+                              placeholder="说明在这个拟真的业内项目里，您是如何主导方案、应对日常困难和解决核心痛点的..."
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between no-print mb-1">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                📦 已输出的高精仿真交付作品(体现您对实干流程极为纯熟)：
+                              </span>
+                              <button
+                                onClick={addProjectOutput}
+                                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[9px] font-bold px-2 py-0.5 rounded border border-emerald-100 transition-colors cursor-pointer"
+                              >
+                                + 新增成果交付
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                              {editableResume.portfolioProject.outputs.map((out, idx) => (
+                                <div key={idx} className="bg-white border border-slate-100 p-2 rounded-xl flex items-center justify-between gap-2">
+                                  <div className="flex items-start gap-1.5 w-full">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 mt-2 shrink-0 animate-pulse"></span>
+                                    <input
+                                      type="text"
+                                      value={out}
+                                      onChange={(e) => updateProjectOutput(idx, e.target.value)}
+                                      className="w-full bg-transparent hover:bg-slate-50 focus:bg-white border-b border-dashed border-transparent hover:border-slate-200 focus:border-indigo-500 focus:outline-none transition-colors text-xs text-[#374151] font-mono leading-relaxed"
+                                      placeholder="交付作品集文件"
+                                    />
+                                  </div>
+                                  <button
+                                    onClick={() => removeProjectOutput(idx)}
+                                    className="text-rose-500 hover:text-rose-700 text-[9px] font-bold hover:underline shrink-0 no-print cursor-pointer"
+                                    title="删除此交付作"
+                                  >
+                                    删除
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+
+                      {/* CV Footer */}
+                      <footer className="mt-12 pt-4 border-t border-slate-100 text-center text-[10px] text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-2.5 font-mono">
+                        <span>由 “AI 简历重构与匹配系统” 精选重排并渲染</span>
+                        <span>PDF 预置文件名: {editableResume.personalInfo.customPdfName}.pdf</span>
+                      </footer>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+
+      {/* Footer (no-print) */}
+      <footer className="bg-white border-t border-slate-100 mt-12 py-6 px-6 text-center text-xs text-slate-500 space-y-1 z-30 relative no-print">
+        <p className="font-semibold text-slate-700">{candidateName}专属跨行高分简历与备战工作台</p>
+        <p>让招聘方在第一眼就降低风险判断，建立强迁移联结。祝求职成功！</p>
+      </footer>
+    </div>
+  );
+}
