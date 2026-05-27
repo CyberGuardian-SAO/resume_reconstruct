@@ -101,13 +101,13 @@ const transitionResultSchema = {
         personalInfo: {
           type: Type.OBJECT,
           properties: {
-            name: { type: Type.STRING, description: "候选人姓名，如果没有，默认为 郭鑫" },
+            name: { type: Type.STRING, description: "候选人姓名，如果没有，默认为 示例候选人" },
             jobTitle: { type: Type.STRING, description: "求职目标岗位名称（强匹配JD）" },
-            phone: { type: Type.STRING, description: "电话，默认为 15323411996" },
-            wechat: { type: Type.STRING, description: "微信，默认为 15323411996" },
-            email: { type: Type.STRING, description: "邮箱，默认为 guoxin199604@gmail.com" },
+            phone: { type: Type.STRING, description: "电话，默认为 13800000000" },
+            wechat: { type: Type.STRING, description: "微信，默认为 13800000000" },
+            email: { type: Type.STRING, description: "邮箱，默认为 resume_example@example.com" },
             location: { type: Type.STRING, description: "意向工作地（城市）" },
-            customPdfName: { type: Type.STRING, description: "PDF下载文件的自定义保存名，格式必须严格遵循: 岗位名称_郭鑫_15323411996（微信同号）" }
+            customPdfName: { type: Type.STRING, description: "PDF下载文件的自定义保存名，格式必须严格遵循: 岗位名称_示例候选人_13800000000（微信同号）" }
           },
           required: ["name", "jobTitle", "phone", "wechat", "email", "location", "customPdfName"]
         },
@@ -131,14 +131,14 @@ const transitionResultSchema = {
           items: {
             type: Type.OBJECT,
             properties: {
-              company: { type: Type.STRING, description: "过往公司，不要胡乱编造不符合实际的名字，依据候选人背景起一个写实的代号或沿用背景" },
-              role: { type: Type.STRING, description: "在此公司时的具体原岗位" },
-              duration: { type: Type.STRING, description: "在职起止时间" },
-              highlight: { type: Type.STRING, description: "跨行业迁移核心亮点提炼（例如：利用互联网精细服务考核重组排班，原客服工作其实无缝沉淀了极强的高频调度、纠纷降级基本功）" },
+              company: { type: Type.STRING, description: "过往公司名称" },
+              role: { type: Type.STRING, description: "担任的角色/目标强匹配化称谓" },
+              duration: { type: Type.STRING, description: "起止时间(如: 2021.03 - 2024.01)" },
+              highlight: { type: Type.STRING, description: "转型亮点总结，简要指出在该岗位积累了哪些可完美应用在目标岗位的底层相通本领 (40-70字)" },
               achievements: {
                 type: Type.ARRAY,
                 items: { type: Type.STRING },
-                description: "重构后的行为结果（一般3条左右）。严格满足“行为+结果”原则，展现数据化、细节、不卑不亢的执行成效，直击目标JD需要"
+                description: "该岗位核心重大成果的真实匹配化包装说明(每段过往履历提炼 2-4 条)，必须严格遵循 '用 行为+客观指标结果 / STAR' 方案描述实干细节，不可平铺直叙。"
               }
             },
             required: ["company", "role", "duration", "highlight", "achievements"]
@@ -147,19 +147,33 @@ const transitionResultSchema = {
         portfolioProject: {
           type: Type.OBJECT,
           properties: {
-            name: { type: Type.STRING, description: "一个仿真重磅求职模拟武器/案例名称 (必须极其对口目标岗位职责和痛点，例如：某品牌连锁茶饮门店单店开业前7天极速冷启动规划案、某区域客服话术标准化调优项目)" },
-            role: { type: Type.STRING, description: "候选人展现的具体角色名（表明主导思维）" },
-            description: { type: Type.STRING, description: "该项目的核心攻坚点，如：如何在短时间内在冷启动中通过客群引流和排班联动降低日常人力耗散12%，并提升15%顾客回头率" },
+            name: { type: Type.STRING, description: "模拟方案/攻坚项目的名称 (如: 《蜜雪冰城客单提振及快消品排队消散2周战役》)" },
+            role: { type: Type.STRING, description: "你在该高精拟真项目中所担当的角色 (体现执行专业度)" },
+            description: { type: Type.STRING, description: "对该案例的核心痛点场景和解决主导思路进行描述说明 (80-130字)" },
             outputs: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
-              description: "输出的一组硬核真实交付成果（3-4个点）。如《第一周单店引流裂变模型排班SOP表》《模拟门店客诉降级三步金句本》《全员服务工时灵活调剂规划器》"
+              description: "该项目输出的高精仿真交付作品文件包或操作清单 (3-5份)，说明你对新行的工作流细节已经滚瓜烂熟。"
             }
           },
           required: ["name", "role", "description", "outputs"]
+        },
+        educationList: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              school: { type: Type.STRING, description: "毕业院校名称，禁止使用占位符 (如：南京工商大学、示范理工学院)" },
+              major: { type: Type.STRING, description: "主修专业，禁止使用占位符 (如：工商管理、计算机科学与技术)" },
+              degree: { type: Type.STRING, description: "学位/学历学位级别 (如：本科、硕士、大专)" },
+              duration: { type: Type.STRING, description: "起止时间 (如：2016.09 - 2020.06)" }
+            },
+            required: ["school", "major", "degree", "duration"]
+          },
+          description: "候选人的真实度重构教育背景（1-2条，绝对禁止任何占位符）"
         }
       },
-      required: ["personalInfo", "intro", "coreSkills", "workExperiences", "portfolioProject"]
+      required: ["personalInfo", "intro", "coreSkills", "workExperiences", "portfolioProject", "educationList"]
     }
   },
   required: ["inquiryScripts", "prepStrategy", "resumeDetails"]
@@ -167,6 +181,16 @@ const transitionResultSchema = {
 
 const app = express();
 app.use(express.json());
+
+// Helper function to robustly clean markdown wraps or ambient texts from JSON outputs
+function cleanJsonString(raw: string): string {
+  let cleaned = raw.trim();
+  // Strip starting ```json or ``` blocks
+  cleaned = cleaned.replace(/^```(?:json)?\s*/i, "");
+  // Strip ending ``` blocks
+  cleaned = cleaned.replace(/\s*```$/i, "");
+  return cleaned.trim();
+}
 
 // Main API handler for transition strategies
 app.post("/api/transition", async (req, res) => {
@@ -177,8 +201,6 @@ app.post("/api/transition", async (req, res) => {
       return res.status(400).json({ error: "岗位名称、岗位描述 (JD) 和 候选人情况 均为必填项。" });
     }
 
-    const ai = getAiClient();
-
     const systemInstruction = `你是一位享誉全球的跨行业求职策略专家、顶尖招聘经理（招聘方思维模拟器）以及简历精重构大师。
 
 今天，你需要帮助一位跨行转型的候选人，将其经历包装重构成最抓主考官眼球、天然降低招聘方“跨行高风险、上手慢、不持久、不稳定”疑虑的硬核候选人。
@@ -187,7 +209,8 @@ app.post("/api/transition", async (req, res) => {
 
 🚨 【极其重要】：所有输出的文本中，严禁包含类似以下括号格式 of placeholders:
 - "[具体时间]" / "[具体数据]" / "[公司名称]" / "[岗位名称]"等
-所有数据和名称必须是依据候选人的原始输入、结合对应行业常识，生成的高度逼真、丰满、合理的“拟真数据（如 客服组长管理24人团队、促使顾客投诉流失降低34%、提升日常排程周转率等）”和具体的细节。
+- "xx公司" / "xx项目" / "xx年xx月"等模糊占位符。
+All数据和名称必须是依据候选人的原始输入、结合对应行业常识，生成的高度逼真、丰满、合理的“拟真数据（如 客服组长管理24人团队、促使顾客投诉流失降低34%、提升日常排程周转率等）”和具体的细节。
 
 【1. 求职话术策略】
 - 提供包含3个风格的高情商话术 (各自控制在 80-120 字)：
@@ -206,7 +229,11 @@ app.post("/api/transition", async (req, res) => {
 - 将经历里的核心职责转化为目标岗位亟需的「可迁移能力」（例如：将“客服接待”重构为“高负荷客诉妥善回转、标准化服务流程管理与人力负荷调配”）。
 - 用场景化与定量的数据指标来强化每个点，充分贯彻「行为 + 结果」或「STAR」原则描述。
 - 个人简介部分必须具备高度的战略合理化，一语击碎对方跨界风险的刻板印象。
-- 提供专门针对此岗位设计、包装的一个「模拟/仿真项目或作业案例」，里面包含清晰的产出物名字，极其逼真。`;
+- 提供专门针对此岗位设计、包装的一个「模拟/仿真项目或作业案例」，里面包含清晰的产出物名字，极其逼真。
+
+🚨【输出最高指示 - OUTPUT FORMAT CONSTRAINT】:
+1. 你必须、只能、且完全返回符合预设 JSON 模式的单个 valid JSON 对象结构，不要添加任何额外的根级属性。
+2. 绝对不能使用任何 markdown 格式（如 \`\`\`json 或 \`\`\`）形式包裹，绝不带有任何多余的外围文字。只输出合法的 JSON 纯文本。`;
 
     const userPrompt = `【求职目标岗位名称】：
 ${targetJobName}
@@ -219,8 +246,13 @@ ${candidateBackground}
 
 请针对以上输入，生成包含求职问询话术、备战计划配置和重构简历的完整转型企划案 JSON。请确保所有字段的数据高度详实逼真，严禁使用 placeholder 类型的占位符。
 请将候选人的姓名设置为："${candidateName || '求职候选人'}"。
-请将微信和手机号设置为："${candidatePhone || '13600000000'}" (微信同号)。
-自定义保存文件名 customPdfName 必须严格遵守格式: "${targetJobName}_${candidateName || '求职候选人'}_${candidatePhone || '13600000000'}（微信同号）"（必须要具体拼合好具体字符串，禁止含有 brackets 或 placeholder 占位符）。`;
+请将微信和手机号设置为："${candidatePhone || '13800000000'}" (微信同号)。
+自定义保存文件名 customPdfName 必须严格遵守格式: "${targetJobName}_${candidateName || '求职候选人'}_${candidatePhone || '13800000000'}（微信同号）"（必须要具体拼合好具体字符串，禁止含有 brackets 或 placeholder 占位符）。
+
+🚨【极其重要，必须100%强制执行】：
+- 仅输出纯粹的 JSON 字符串（可以直接在 JavaScript 环境中解析成 Object）。
+- 绝不包裹在任何 \`\`\` 格式的 Markdown 标注内，绝不带有任何多余的前缀、后缀或解释文字。
+- 返回的 Key 必须和 Schema 定义结构严格一致，确保无拼写及语法错误。`;
 
     const provider = process.env.AI_PROVIDER || "gemini";
     let data;
@@ -232,6 +264,93 @@ ${candidateBackground}
       }
       const apiBase = process.env.OPENAI_API_BASE || "https://api.openai.com/v1";
       const model = process.env.OPENAI_MODEL || "gpt-5-mini";
+
+      const schemaTemplate = `{
+  "inquiryScripts": {
+    "steady": "稳重型投递话术 (80-120字)，不带有任何括号占位符",
+    "active": "主动进攻型投递话术 (80-120字)，不带有任何括号占位符",
+    "casual": "轻沟通型投递话术 (80-120字)，不带有任何括号占位符"
+  },
+  "prepStrategy": {
+    "skillsGap": [
+      "具体核心能力缺口 1",
+      "具体核心能力缺口 2"
+    ],
+    "sevenDayPlan": [
+      {
+        "day": 1,
+        "focus": "今日学习/训练主线描述",
+        "learn": "今日具体注入的硬核行业术语或知识点",
+        "practice": "今日模拟实战演练任务",
+        "output": "今日产出的仿真成果/有形资产"
+      }
+    ],
+    "portfolioMaterials": [
+      {
+        "type": "具体的有形作品标题 (如: 《蜜雪冰城客诉SOP处理手册》)",
+        "description": "说明该材料正好对焦了转行的何种敏感疑惑",
+        "value": "说明实则证明了对方成熟的哪一项基本功",
+        "templateExample": "包含此方案的具体实操大纲框架或样例标准"
+      }
+    ]
+  },
+  "resumeDetails": {
+    "personalInfo": {
+      "name": "${candidateName || '李明'}",
+      "jobTitle": "${targetJobName}",
+      "phone": "${candidatePhone || '13800000000'}",
+      "wechat": "${candidatePhone || '13800000000'}",
+      "email": "resume_example@example.com",
+      "location": "目标工作城市",
+      "customPdfName": "${targetJobName}_${candidateName || '李明'}_${candidatePhone || '13800000000'}（微信同号）"
+    },
+    "intro": "一两句强匹配的个人转行说服自述说明",
+    "coreSkills": [
+      {
+        "name": "可迁移能力词汇 (切忌空泛，需要具体的行业专业名词)",
+        "description": "结合实际数字简述该技能在新岗位的即刻可用性。"
+      }
+    ],
+    "workExperiences": [
+      {
+        "company": "过往具体的真实或高度仿真公司名称",
+        "role": "担任角色 / 匹配新岗位的头衔",
+        "duration": "起止时间(如: 2021.03 - 2024.01)",
+        "highlight": "说明在任期里如何锻炼了完美应用于新行新岗位的底层能力、情商或管理心法",
+        "achievements": [
+          "基于 STAR 的具体第一成就行文 (绝对不能含 xx公司、yy项目 等空置白标或 brackets)",
+          "基于 STAR 的具体第二成就行文"
+        ]
+      }
+    ],
+    "portfolioProject": {
+      "name": "拟真设计 or 做过的主导项目名称 (如: 《大型瑞幸咖啡门店高峰排队拥堵分流专项方案》)",
+      "role": "所担当的角色",
+      "description": "针对核心痛点及主要解决抓手思路的简明包装",
+      "outputs": [
+        "仿真交付物清单描述 1",
+        "仿真交付物清单描述 2"
+      ]
+    },
+    "educationList": [
+      {
+        "school": "南京工商大学 / 示范理工学院 (具体的大学名称)",
+        "major": "工商管理 / 计算机科学与技术 (具体的专业名称)",
+        "degree": "学士 / 硕士 / 本科 (具体的学历)",
+        "duration": "2016.09 - 2020.06 (具体的起止年限)"
+      }
+    ]
+  }
+}`;
+
+      const openAiSystemInstruction = systemInstruction + 
+        `\n\n🚨🚨🚨【极其重要，强制执行的输出 JSON 的 key 结构模板规范】🚨🚨🚨\n` +
+        `你必须并且只能输出完美的 JSON 纯文本对象，它的 root 及 nested key 必须跟下面的 key 拼写、命名等完全一致 (驼峰命名拼写, 不能有任何遗漏或改写)：\n` +
+        schemaTemplate + 
+        `\n\n请保证：\n` +
+        `1. 所有返回的 JSON 键值和层级关系与上方指定模板完全一致。\n` +
+        `2. 绝对不能使用 \`\`\`json 或 \`\`\` 格式的 Markdown 包裹返回结果，只向我发送标准的 JSON 纯文本字符串！\n` +
+        `3. 绝对不带有任何多余的前缀、后缀或前后的言语解释论述。`;
 
       console.log(`[AI-BACKUP] Calling OpenAI-compatible Client API: Base=${apiBase}, Model=${model}`);
       
@@ -247,7 +366,7 @@ ${candidateBackground}
           messages: [
             { 
               role: "system", 
-              content: systemInstruction + "\n🚨极其重要：请返回符合接口规范的纯 JSON 对象字符串，千万不要包裹在 Markdown 代码块内。" 
+              content: openAiSystemInstruction
             },
             { role: "user", content: userPrompt }
           ],
@@ -265,7 +384,8 @@ ${candidateBackground}
       if (!outputText) {
         throw new Error("备选 AI 接口响应中未找到 content 字段值。");
       }
-      data = JSON.parse(outputText.trim());
+      const cleanedText = cleanJsonString(outputText);
+      data = JSON.parse(cleanedText);
     } else {
       // Default: Google Gemini SDK call
       const ai = getAiClient();
@@ -286,7 +406,8 @@ ${candidateBackground}
       if (!outputText) {
         throw new Error("模型未正常返回任何内容。");
       }
-      data = JSON.parse(outputText.trim());
+      const cleanedText = cleanJsonString(outputText);
+      data = JSON.parse(cleanedText);
     }
 
     return res.json(data);

@@ -51,6 +51,13 @@ export interface PortfolioProject {
   outputs: string[]; // 仿真交付物清单 (极其像业内人)
 }
 
+export interface Education {
+  school: string;
+  major: string;
+  degree: string;
+  duration: string;
+}
+
 export interface RestructuredResume {
   personalInfo: {
     name: string;
@@ -65,6 +72,7 @@ export interface RestructuredResume {
   coreSkills: { name: string; description: string }[]; // 重点提炼的可迁移核心能力与工具
   workExperiences: WorkExperience[]; // 重构后的工作经历 (强匹配目标JD)
   portfolioProject: PortfolioProject; // 专门制作的模拟案例或项目说明
+  educationList: Education[];
 }
 
 export interface TransitionResult {
