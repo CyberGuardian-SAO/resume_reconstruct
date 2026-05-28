@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { 
   Briefcase, 
   Sparkles, 
@@ -27,14 +27,46 @@ import {
   BookOpen,
   Layers,
   FileCheck,
-  Trash2
+  Trash2,
+  X,
+  Lock,
+  AlertCircle,
+  CreditCard,
+  CheckCircle2
 } from "lucide-react";
 import { demoExamples } from "./examplesData";
 import { TransitionResult, RestructuredResume, WorkExperience, PortfolioProject, Education } from "./types";
+import { WeChatWidget } from "./components/WeChatWidget";
+import AuthModal from "./components/AuthModal";
+import PaymentModal from "./components/PaymentModal";
+
+function generateNewSessionToken(): string {
+  return "session_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
 
 export default function App() {
+  const [sessionToken, setSessionToken] = useState(() => {
+    return localStorage.getItem("sessionToken") || "";
+  });
   const [candidateName, setCandidateName] = useState("求职候选人");
   const [candidatePhone, setCandidatePhone] = useState("13800000000");
+  const [authPhone, setAuthPhone] = useState("");
+  const [authCode, setAuthCode] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [freeQuota, setFreeQuota] = useState<number | null>(null);
+  const [paidQuota, setPaidQuota] = useState<number | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [authPassword, setAuthPassword] = useState("");
+  const [authPasswordConfirm, setAuthPasswordConfirm] = useState("");
+  const [authMode, setAuthMode] = useState<"register" | "login">("register");
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [paymentOrderNo, setPaymentOrderNo] = useState<string>("");
+  const [paymentCodeUrl, setPaymentCodeUrl] = useState<string>("");
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentStatusMessage, setPaymentStatusMessage] = useState<string | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [copiedQRCode, setCopiedQRCode] = useState(false);
 
   const [targetJobName, setTargetJobName] = useState("");
   const [jobDescription, setJobDescription] = useState("");
@@ -52,6 +84,8 @@ export default function App() {
   const [showResumeFooter, setShowResumeFooter] = useState(true);
   const [resumeFooterLeft, setResumeFooterLeft] = useState("由 “AI 跨行简历重构与核心匹配系统” 精选重排并渲染");
   const [resumeFooterRight, setResumeFooterRight] = useState("本简历已通过标准化职业迁移性校验");
+  const [unseenTabs, setUnseenTabs] = useState<Set<string>>(new Set(["strategy", "resume"]));
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
 
   // Resume State setters for real-time live editing
   const updatePersonalInfo = (field: keyof RestructuredResume["personalInfo"], value: string) => {
@@ -96,7 +130,7 @@ export default function App() {
 
   const removeCoreSkill = (index: number) => {
     if (!editableResume) return;
-    const newSkills = editableResume.coreSkills.filter((_, i) => i !== index);
+    const newSkills = editableResume.coreSkills.filter((_: any, i: number) => i !== index);
     setEditableResume({ ...editableResume, coreSkills: newSkills });
   };
 
@@ -119,7 +153,7 @@ export default function App() {
 
   const removeWorkExperience = (index: number) => {
     if (!editableResume) return;
-    const newXps = editableResume.workExperiences.filter((_, i) => i !== index);
+    const newXps = editableResume.workExperiences.filter((_: any, i: number) => i !== index);
     setEditableResume({ ...editableResume, workExperiences: newXps });
   };
 
@@ -149,7 +183,7 @@ export default function App() {
   const removeAchievement = (xpIndex: number, achIndex: number) => {
     if (!editableResume) return;
     const newXps = [...editableResume.workExperiences];
-    const newAchs = newXps[xpIndex].achievements.filter((_, i) => i !== achIndex);
+    const newAchs = newXps[xpIndex].achievements.filter((_: any, i: number) => i !== achIndex);
     newXps[xpIndex] = { ...newXps[xpIndex], achievements: newAchs };
     setEditableResume({ ...editableResume, workExperiences: newXps });
   };
@@ -191,7 +225,7 @@ export default function App() {
 
   const removeProjectOutput = (outIndex: number) => {
     if (!editableResume) return;
-    const newOutputs = editableResume.portfolioProject.outputs.filter((_, i) => i !== outIndex);
+    const newOutputs = editableResume.portfolioProject.outputs.filter((_: any, i: number) => i !== outIndex);
     setEditableResume({
       ...editableResume,
       portfolioProject: {
@@ -221,7 +255,7 @@ export default function App() {
   const removeEducation = (index: number) => {
     if (!editableResume) return;
     const currentEduList = editableResume.educationList || [];
-    const newEdu = currentEduList.filter((_, i) => i !== index);
+    const newEdu = currentEduList.filter((_: any, i: number) => i !== index);
     setEditableResume({ ...editableResume, educationList: newEdu });
   };
 
@@ -354,9 +388,385 @@ export default function App() {
     return normalized;
   };
 
+  const fetchUsageStatus = async (token: string) => {
+    try {
+      const response = await fetch("/api/usage/status", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("无法获取使用状态");
+      }
+
+      const data = await response.json();
+      setFreeQuota(typeof data.freeQuota === "number" ? data.freeQuota : null);
+      setPaidQuota(typeof data.availablePaidQuota === "number" ? data.availablePaidQuota : null);
+      setIsLoggedIn(true);
+      setAuthMessage("已注册，首次验证成功赠送1次免费额度。");
+    } catch (err: any) {
+      console.error("fetchUsageStatus error", err);
+      setIsLoggedIn(false);
+      setFreeQuota(null);
+      setPaidQuota(null);
+      if (err.message?.includes("401")) {
+        setAuthMessage("当前会话已失效，请重新注册。");
+        localStorage.removeItem("sessionToken");
+        setSessionToken("");
+      }
+    }
+  };
+
+  const handleSendCode = async () => {
+    if (!authPhone.trim()) {
+      setAuthMessage("请输入手机号以接收验证码。");
+      return;
+    }
+    if (!authPassword.trim() || authPassword.trim().length < 6) {
+      setAuthMessage("密码最低6位。");
+      return;
+    }
+    if (authPassword.trim() !== authPasswordConfirm.trim()) {
+      setAuthMessage("两次输入的密码不一致。");
+      return;
+    }
+    setAuthLoading(true);
+    setAuthMessage(null);
+
+    try {
+      const response = await fetch("/api/register/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: authPhone.trim(), password: authPassword.trim(), passwordConfirm: authPasswordConfirm.trim() }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "验证码发送失败，请稍后重试。");
+      }
+
+      setAuthMessage("验证码已发送，请注意查收。首次注册验证成功可获得1次免费额度。");
+    } catch (err: any) {
+      console.error("handleSendCode error", err);
+      setAuthMessage(err.message || "验证码发送失败。");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!authPhone.trim() || !authCode.trim()) {
+      setAuthMessage("请输入手机号和短信验证码完成注册。");
+      return;
+    }
+    if (!authPassword.trim() || authPassword.trim().length < 6) {
+      setAuthMessage("密码最低6位。");
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthMessage(null);
+
+    try {
+      const response = await fetch("/api/register/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: authPhone.trim(), code: authCode.trim(), password: authPassword.trim() }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "验证码验证失败，请检查后重试。");
+      }
+
+      const data = await response.json();
+      const token = data.sessionToken;
+      if (token) {
+        setSessionToken(token);
+        localStorage.setItem("sessionToken", token);
+        setIsLoggedIn(true);
+        setCandidatePhone(authPhone.trim());
+        await fetchUsageStatus(token);
+        setShowAuthModal(false);
+      }
+      setAuthMessage("注册成功。已为首次注册用户赠送1次免费额度。");
+      setAuthCode("");
+      setAuthPassword("");
+      setAuthPasswordConfirm("");
+    } catch (err: any) {
+      console.error("handleVerifyCode error", err);
+      setAuthMessage(err.message || "验证码验证失败。");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!authPhone.trim()) {
+      setAuthMessage("请输入手机号。");
+      return;
+    }
+    if (!authPassword.trim() || authPassword.trim().length < 6) {
+      setAuthMessage("密码最低6位。");
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthMessage(null);
+
+    try {
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: authPhone.trim(), password: authPassword.trim() }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "登录失败，请检查后重试。");
+      }
+
+      const data = await response.json();
+      const token = data.sessionToken;
+      if (token) {
+        setSessionToken(token);
+        localStorage.setItem("sessionToken", token);
+        setIsLoggedIn(true);
+        setCandidatePhone(authPhone.trim());
+        await fetchUsageStatus(token);
+        setShowAuthModal(false);
+      }
+      setAuthMessage("登录成功。");
+      setAuthCode("");
+    } catch (err: any) {
+      console.error("handleLogin error", err);
+      setAuthMessage(err.message || "登录失败。");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleCreatePayment = async () => {
+    if (!sessionToken) {
+      setShowAuthModal(true);
+      return;
+    }
+    if (freeQuota !== 0) {
+      setPaymentStatusMessage("您还有免费额度，无需支付。");
+      return;
+    }
+    // 用户无额度时直接创建订单，不再显示确认弹窗
+    setShowPaymentModal(true);
+    setPaymentLoading(true);
+    setPaymentStatusMessage(null);
+    setCopiedQRCode(false);
+
+    try {
+      const response = await fetch("/api/payment/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ amountCents: 100, description: "一次付费使用简历重构服务" }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "微信支付订单创建失败。");
+      }
+
+      const data = await response.json();
+      const newOrder = data.paymentId || "";
+      setPaymentOrderNo(newOrder);
+      setPaymentCodeUrl(data.codeUrl || "");
+      setPaymentStatusMessage("微信支付订单已创建，请扫描二维码完成支付。正在轮询支付状态...（若已支付，请稍候）");
+      // Start polling payment status automatically
+      pollPaymentStatus(newOrder, sessionToken, 24, 5000);
+    } catch (err: any) {
+      console.error("handleCreatePayment error", err);
+      setPaymentStatusMessage(err.message || "微信支付订单创建失败。");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const handlePaymentConfirm = async () => {
+    if (!sessionToken) {
+      setPaymentStatusMessage("请先完成手机号注册后再发起微信支付。");
+      return;
+    }
+
+    setPaymentLoading(true);
+    setPaymentStatusMessage(null);
+
+    try {
+      const response = await fetch("/api/payment/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ amountCents: 100, description: "一次付费使用简历重构服务" }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "微信支付订单创建失败。");
+      }
+
+      const data = await response.json();
+      const newOrder = data.paymentId || "";
+      setPaymentOrderNo(newOrder);
+      setPaymentCodeUrl(data.codeUrl || "");
+      setPaymentStatusMessage("微信支付订单已创建，请扫描二维码完成支付。正在轮询支付状态...（若已支付，请稍候）");
+      // Start polling payment status automatically
+      pollPaymentStatus(newOrder, sessionToken, 24, 5000);
+    } catch (err: any) {
+      console.error("handleCreatePayment error", err);
+      setPaymentStatusMessage(err.message || "微信支付订单创建失败。");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const handleCheckPaymentStatus = async () => {
+    if (!sessionToken || !paymentOrderNo) {
+      setPaymentStatusMessage("请先创建订单，然后再查询支付状态。");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/payment/status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionToken}`,
+        },
+        body: JSON.stringify({ paymentId: paymentOrderNo }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "查询支付状态失败。");
+      }
+
+      const data = await response.json();
+      const statusText = data.status === "PAID" ? "已支付" : data.status === "PENDING" ? "待支付" : data.status === "REFUND" ? "已退款" : (data.status || "未知");
+      const amountYuan = ((data.amount || 0) / 100).toFixed(2);
+      setPaymentStatusMessage(`订单状态：${statusText}，金额：¥${amountYuan}`);
+      if (data.status === "PAID") {
+        await fetchUsageStatus(sessionToken);
+        setTimeout(() => {
+          setShowPaymentModal(false);
+          setPaymentStatusMessage(null);
+          setPaymentCodeUrl("");
+          setCopiedQRCode(false);
+          alert("支付成功！额度已到账，您现在可以继续使用服务。");
+        }, 500);
+      }
+    } catch (err: any) {
+      console.error("handleCheckPaymentStatus error", err);
+      setPaymentStatusMessage(err.message || "查询支付状态失败。");
+    }
+  };
+
+  // Poll payment status helper: attempts * intervalMs max, call fetchUsageStatus on success
+  const pollPaymentStatus = async (paymentId: string, token: string | null, maxAttempts = 12, intervalMs = 5000) => {
+    if (!paymentId || !token) return;
+    let attempts = 0;
+    const timer = setInterval(async () => {
+      attempts += 1;
+      try {
+        const resp = await fetch("/api/payment/status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ paymentId }),
+        });
+        if (resp.ok) {
+          const d = await resp.json();
+          const statusText = d.status === "PAID" ? "已支付" : d.status === "PENDING" ? "待支付" : d.status === "REFUND" ? "已退款" : (d.status || "未知");
+          const amountYuan = ((d.amount || 0) / 100).toFixed(2);
+          setPaymentStatusMessage(`订单状态：${statusText}，金额：¥${amountYuan}`);
+          if (d.status === "PAID") {
+            clearInterval(timer);
+            // Refresh usage quotas so UI reflects new paid quota
+            await fetchUsageStatus(token);
+            // 支付成功后自动关闭弹窗并显示成功提示
+            // 注意：保留 paymentOrderNo 不清理，以便后续 /api/transition 能带上 paymentId 消耗额度
+            setTimeout(() => {
+              setShowPaymentModal(false);
+              setPaymentStatusMessage(null);
+              setPaymentCodeUrl("");
+              setCopiedQRCode(false);
+              // 显示支付成功提示
+              alert("支付成功！额度已到账，您现在可以继续使用服务。");
+            }, 1000);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("pollPaymentStatus error", e);
+      }
+      if (attempts >= maxAttempts) {
+        clearInterval(timer);
+        setPaymentStatusMessage((s: string | null) => (s ? s + "（轮询已到最大次数，若已支付请手动查询）" : "轮询结束"));
+      }
+    }, intervalMs);
+  };
+
+  useEffect(() => {
+    if (sessionToken) {
+      fetchUsageStatus(sessionToken);
+    }
+  }, [sessionToken]);
+
   // Submit form to express backend API
   const handleGenerateStrategy = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!sessionToken) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    if (freeQuota === 0 && paidQuota === 0) {
+      // 无额度时直接创建订单并展示收款码
+      setShowPaymentModal(true);
+      setPaymentLoading(true);
+      setPaymentStatusMessage(null);
+      setCopiedQRCode(false);
+      try {
+        const response = await fetch("/api/payment/create", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${sessionToken}`,
+          },
+          body: JSON.stringify({ amountCents: 100, description: "一次付费使用简历重构服务" }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const newOrder = data.paymentId || "";
+          setPaymentOrderNo(newOrder);
+          setPaymentCodeUrl(data.codeUrl || "");
+          setPaymentStatusMessage("微信支付订单已创建，请扫描二维码完成支付。正在轮询支付状态...");
+          pollPaymentStatus(newOrder, sessionToken, 24, 5000);
+        } else {
+          const errData = await response.json();
+          setPaymentStatusMessage(errData.error || "微信支付订单创建失败。");
+        }
+      } catch (err: any) {
+        console.error("handleGenerateStrategy payment error", err);
+        setPaymentStatusMessage(err.message || "微信支付订单创建失败。");
+      } finally {
+        setPaymentLoading(false);
+      }
+      return;
+    }
+
     if (!targetJobName.trim() || !jobDescription.trim() || !candidateBackground.trim()) {
       setError("请完整填写岗位名称、岗位JD要求以及您的自身经历情况。");
       return;
@@ -370,6 +780,7 @@ export default function App() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(sessionToken ? { "Authorization": `Bearer ${sessionToken}` } : {}),
         },
         body: JSON.stringify({
           targetJobName,
@@ -377,6 +788,7 @@ export default function App() {
           candidateBackground,
           candidateName,
           candidatePhone,
+          ...(freeQuota === 0 && paymentOrderNo ? { paymentId: paymentOrderNo } : {}),
         }),
       });
 
@@ -385,11 +797,28 @@ export default function App() {
         throw new Error(errData.error || "生成失败，请稍后重试");
       }
 
+      // 从响应header中获取session token（服务端可能因token失效生成了新token）
+      const token = response.headers.get("X-Session-Token");
+      if (token && token !== sessionToken) {
+        setSessionToken(token);
+        localStorage.setItem("sessionToken", token);
+      }
+
       const rawJson = await response.json();
       const data = normalizeTransitionResult(rawJson);
       setResult(data);
       setEditableResume(data.resumeDetails);
       setCurrentTab("scripts"); // default view on output load
+      // 重置未查看标签提示（②和③未查看）
+      setUnseenTabs(new Set(["strategy", "resume"]));
+      // 生成结果后自动折叠左侧输入面板，让出更多空间给结果
+      setLeftPanelCollapsed(true);
+      // // 滚动到页面顶部展示结果
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      // 调用成功后刷新额度显示
+      if (sessionToken) {
+        fetchUsageStatus(sessionToken);
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || "后端AI处理过程出错，请检查配置或稍后重试。");
@@ -644,7 +1073,7 @@ export default function App() {
         
         <h2>02 / 核心可迁移能力 ( core transferrable competencies )</h2>
         <div>
-          ${editableResume.coreSkills.map(s => `
+          ${editableResume.coreSkills.map((s: any) => `
             <div class="skill-item">
               <span class="skill-name">【${s.name}】</span>
               <span>${s.description}</span>
@@ -654,7 +1083,7 @@ export default function App() {
         
         <h2>03 / 重构工作经历 ( targeted experience re-alignment )</h2>
         <div>
-          ${editableResume.workExperiences.map(w => `
+          ${editableResume.workExperiences.map((w: any) => `
             <div style="margin-bottom: 14pt;">
               <div class="experience-header">
                 <span class="experience-company">${w.company}</span>
@@ -666,7 +1095,7 @@ export default function App() {
                 <b style="color:#4f46e5;">🔄 跨界迁移亮点提炼：</b>${w.highlight}
               </div>
               <ul class="achievements-list">
-                ${w.achievements.map(a => `<li style="list-style-type:disc; margin-left:15px;">${a}</li>`).join('')}
+                ${w.achievements.map((a: any) => `<li style="list-style-type:disc; margin-left:15px;">${a}</li>`).join('')}
               </ul>
             </div>
           `).join('')}
@@ -679,13 +1108,13 @@ export default function App() {
           <div style="margin-bottom:6pt; text-align:justify;"><b>核心攻坚背景与主导思路：</b>${editableResume.portfolioProject.description}</div>
           <div style="margin-bottom:2pt; font-weight:bold; color:#475569; font-size:9.5pt;">📦 已输出的高精仿真交付作品：</div>
           <ul class="achievements-list">
-            ${editableResume.portfolioProject.outputs.map(o => `<li style="list-style-type:disc; margin-left:15px;">${o}</li>`).join('')}
+            ${editableResume.portfolioProject.outputs.map((o: any) => `<li style="list-style-type:disc; margin-left:15px;">${o}</li>`).join('')}
           </ul>
         </div>
 
         <h2>05 / 教育背景 ( educational background )</h2>
         <div style="margin-bottom:12pt;">
-          ${(editableResume.educationList || []).map(edu => `
+          ${(editableResume.educationList || []).map((edu: any) => `
             <div style="margin-bottom: 6pt;">
               <div class="experience-header">
                 <span class="experience-company">${edu.school}</span>
@@ -726,12 +1155,12 @@ export default function App() {
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#EDF2F7] px-6 py-4 no-print">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="bg-[#111827] text-white p-2.5 rounded-xl shadow-sm">
-              <Sparkles className="h-5 w-5 text-indigo-400" />
+            <div className="bg-white p-1 rounded-xl shadow-sm">
+              <img src="/logo.jpeg" alt="BitQAI" className="h-9 w-auto" />
             </div>
             <div>
               <h1 className="text-lg font-bold text-[#111827] flex items-center gap-2">
-                简历重构与跨行求职策略平台
+              简历重构与跨行求职策略平台
                 <span className="text-xs bg-indigo-50 text-indigo-600 font-medium px-2 py-0.5 rounded-full border border-indigo-100">
                   招聘方思维模拟版
                 </span>
@@ -742,14 +1171,41 @@ export default function App() {
             </div>
           </div>
           
-          <div className="flex items-center gap-3 text-xs text-[#64748B]">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 text-xs text-[#64748B]">
             <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-md border border-emerald-100 font-mono">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
               AI 策略服务端就绪
             </span>
             <span className="hidden sm:inline text-slate-300">|</span>
-            <span className="hidden sm:inline">
-              当前用户: <strong className="text-slate-800 font-semibold">{candidateName} ({candidatePhone})</strong>
+            <span className="text-slate-500">
+              {isLoggedIn ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    <span>已注册：<strong className="text-slate-800 font-semibold">{authPhone}</strong></span>
+                    <span>免费额度：<strong className="text-slate-800 font-semibold">{freeQuota !== null ? `${freeQuota} 次` : "..." }</strong></span>
+                    <span>剩余额度：<strong className="text-slate-800 font-semibold">{paidQuota !== null ? `${paidQuota} 次` : "..." }</strong></span>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      localStorage.removeItem("sessionToken");
+                      setSessionToken("");
+                      setIsLoggedIn(false);
+                      setAuthPhone("");
+                    }}
+                    className="text-[10px] text-rose-500 hover:text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-100"
+                  >退出</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="hidden sm:inline">未注册，请先完成手机号验证登记</span>
+                  <button 
+                    onClick={() => setShowAuthModal(true)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-md font-bold transition-all shadow-sm hover:shadow-md active:scale-95"
+                  >
+                    注册 / 登录
+                  </button>
+                </div>
+              )}
             </span>
           </div>
         </div>
@@ -760,7 +1216,31 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* Left Panel: Inputs & Presets (no-print) */}
-          <div className="lg:col-span-5 space-y-6 no-print">
+          <div className={`no-print transition-all duration-400 ${leftPanelCollapsed ? 'lg:col-span-1' : 'lg:col-span-5'} space-y-6 overflow-hidden`}>
+            
+            {/* 折叠/展开左侧面板的切换按钮 */}
+            {result && (
+              <button
+                onClick={() => setLeftPanelCollapsed(!leftPanelCollapsed)}
+                className={`w-full flex items-center justify-between bg-white rounded-2xl border border-slate-200/90 p-4 shadow-sm hover:bg-slate-50 transition-all group ${leftPanelCollapsed ? 'flex-col gap-2' : ''}`}
+              >
+                <span className="text-xs font-bold text-slate-600 flex items-center gap-2 whitespace-nowrap">
+                  {leftPanelCollapsed ? (
+                    <><ChevronRight className="h-4 w-4 text-indigo-500" /></>
+                  ) : (
+                    <><ChevronRight className="h-4 w-4 text-indigo-500 -rotate-180" /> 收起输入面板</>
+                  )}
+                </span>
+                {leftPanelCollapsed && (
+                  <span className="flex flex-col items-center gap-1 animate-pulse">
+                    <span className="text-[10px] text-indigo-500 font-bold" style={{ writingMode: 'vertical-rl' }}>点击展开输入面板</span>
+                  </span>
+                )}
+              </button>
+            )}
+            
+            {/* 可折叠的左侧内容区 */}
+            <div className={`space-y-6 transition-all duration-400 ${leftPanelCollapsed ? 'opacity-0 max-w-0 pointer-events-none' : 'opacity-100 max-w-full'}`}>
             
             {/* Value Proposition Statement */}
             <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-sm space-y-3">
@@ -806,8 +1286,44 @@ export default function App() {
                 ))}
               </div>
             </div>
+            
+            </div>{/* 折叠区域结束（求职策略原理 + 快速体验模板） */}
+
+            <AuthModal
+              show={showAuthModal}
+              authMode={authMode}
+              authPhone={authPhone}
+              authPassword={authPassword}
+              authPasswordConfirm={authPasswordConfirm}
+              authCode={authCode}
+              authLoading={authLoading}
+              authMessage={authMessage}
+              onClose={() => { setShowAuthModal(false); setAuthMessage(null); }}
+              onModeChange={setAuthMode}
+              onPhoneChange={setAuthPhone}
+              onPasswordChange={setAuthPassword}
+              onPasswordConfirmChange={setAuthPasswordConfirm}
+              onCodeChange={setAuthCode}
+              onSendCode={handleSendCode}
+              onVerifyCode={handleVerifyCode}
+              onLogin={handleLogin}
+            />
+
+            <PaymentModal
+              show={showPaymentModal}
+              sessionToken={sessionToken}
+              freeQuota={freeQuota}
+              paymentCodeUrl={paymentCodeUrl}
+              paymentOrderNo={paymentOrderNo}
+              copiedQRCode={copiedQRCode}
+              paymentStatusMessage={paymentStatusMessage}
+              onClose={() => { setShowPaymentModal(false); setPaymentStatusMessage(null); }}
+              onCheckPaymentStatus={handleCheckPaymentStatus}
+              onCopyQRCode={() => { navigator.clipboard.writeText(paymentCodeUrl); setCopiedQRCode(true); setTimeout(() => setCopiedQRCode(false), 2000); }}
+            />
 
             {/* Core Form */}
+            <div className={`overflow-hidden transition-all duration-400 ${leftPanelCollapsed ? 'max-w-0 opacity-0 pointer-events-none' : 'max-w-full opacity-100'}`}>
             <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-sm">
               <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
                 <Briefcase className="h-4 w-4 text-indigo-600" />
@@ -917,7 +1433,7 @@ export default function App() {
                   {loading ? (
                     <>
                       <RefreshCw className="h-4 w-4 animate-spin text-indigo-400" />
-                      <span>正在以招聘专家视角重组分析中 (约需10s)...</span>
+                      <span>正在以招聘专家视角重组分析中 (约需1分钟)...</span>
                     </>
                   ) : (
                     <>
@@ -935,10 +1451,11 @@ export default function App() {
                 </div>
               )}
             </div>
+            </div>{/* 折叠区域结束（输入表单） */}
           </div>
 
           {/* Right Panel: Rendered Insights and Output (Interactive Tabs) */}
-          <div className="lg:col-span-7 space-y-6">
+          <div className={`space-y-6 transition-all duration-400 ${leftPanelCollapsed ? 'lg:col-span-11' : 'lg:col-span-7'}`}>
 
             {!result && !loading && (
               <div className="bg-white rounded-3xl border border-dashed border-slate-200/90 p-12 text-center space-y-5 shadow-sm min-h-[500px] flex flex-col items-center justify-center">
@@ -1011,8 +1528,8 @@ export default function App() {
                     </button>
                     
                     <button
-                      onClick={() => setCurrentTab("strategy")}
-                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                      onClick={() => { setCurrentTab("strategy"); setUnseenTabs(prev => { const next = new Set(prev); next.delete("strategy"); return next; }); }}
+                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer relative ${
                         currentTab === "strategy"
                           ? "bg-[#111827] text-white shadow-sm"
                           : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
@@ -1020,11 +1537,13 @@ export default function App() {
                     >
                       <Layers className="h-3.5 w-3.5" />
                       <span>② 7天硬核备战</span>
+                      {unseenTabs.has("strategy") && <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500 animate-ping"></span>}
+                      {unseenTabs.has("strategy") && <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500"></span>}
                     </button>
                     
                     <button
-                      onClick={() => setCurrentTab("resume")}
-                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                      onClick={() => { setCurrentTab("resume"); setUnseenTabs(prev => { const next = new Set(prev); next.delete("resume"); return next; }); }}
+                      className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer relative ${
                         currentTab === "resume"
                           ? "bg-[#111827] text-white shadow-sm"
                           : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
@@ -1032,6 +1551,8 @@ export default function App() {
                     >
                       <FileCheck className="h-3.5 w-3.5" />
                       <span>③ 定制简历预检</span>
+                      {unseenTabs.has("resume") && <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500 animate-ping"></span>}
+                      {unseenTabs.has("resume") && <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500"></span>}
                     </button>
                   </nav>
 
@@ -1974,6 +2495,7 @@ export default function App() {
         <p className="font-semibold text-slate-700">{candidateName}专属跨行高分简历与备战工作台</p>
         <p>让招聘方在第一眼就降低风险判断，建立强迁移联结。祝求职成功！</p>
       </footer>
+      <WeChatWidget />
     </div>
   );
 }
